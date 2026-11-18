@@ -8,7 +8,6 @@ import { Screen } from '@/components/Screen';
 import { haptic } from '@/lib/platform';
 import { de } from '@/lib/pet';
 import { useOnboardingDraft } from '@/store/useOnboardingDraft';
-import { usePetStore } from '@/store/usePetStore';
 import { colors, fonts, radius } from '@/theme';
 
 const WALKS = [15, 30, 60];
@@ -17,7 +16,6 @@ const MAX_MEALS = 4;
 
 export default function RoutineStep() {
   const draft = useOnboardingDraft();
-  const completeOnboarding = usePetStore((s) => s.completeOnboarding);
   const name = draft.name.trim();
 
   const setMeals = (meals: number) => {
@@ -26,21 +24,7 @@ export default function RoutineStep() {
     draft.update({ meals });
   };
 
-  const finish = () => {
-    completeOnboarding(
-      {
-        name,
-        species: draft.species,
-        breed: draft.breed.trim(),
-        birth: draft.birth,
-        weightKg: draft.weightKg,
-        sex: draft.sex,
-      },
-      { meals: draft.meals, walkMinutes: draft.walkMinutes },
-    );
-    haptic.success();
-    router.replace('/onboarding/done');
-  };
+  const next = () => router.push('/onboarding/reminders');
 
   return (
     <Screen scroll>
@@ -97,7 +81,7 @@ export default function RoutineStep() {
 
       <View style={{ flex: 1 }} />
 
-      <Button label="Continuar" onPress={finish} />
+      <Button label="Continuar" onPress={next} />
     </Screen>
   );
 }

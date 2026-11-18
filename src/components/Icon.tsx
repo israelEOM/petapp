@@ -67,6 +67,12 @@ const ICONS = {
     </>
   ),
   plus: <Path d="M12 5v14M5 12h14" />,
+  bell: (
+    <>
+      <Path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2.5h-15Z" />
+      <Path d="M10 21a2 2 0 0 0 4 0" />
+    </>
+  ),
   minus: <Path d="M5 12h14" />,
 } satisfies Record<string, ReactElement>;
 

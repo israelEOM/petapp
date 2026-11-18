@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ReminderSync } from '@/lib/useReminderSync';
 import { useHydrated } from '@/store/usePetStore';
 import { colors } from '@/theme';
 
@@ -29,7 +30,10 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'fade' }} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'fade' }}>
+        <Stack.Screen name="reminders" options={{ animation: 'slide_from_right' }} />
+      </Stack>
+      <ReminderSync />
     </SafeAreaProvider>
   );
 }

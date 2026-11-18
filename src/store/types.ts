@@ -34,3 +34,14 @@ export interface HealthItem {
   /** "YYYY-MM-DD" of the last dose, null when unknown */
   lastDate: string | null;
 }
+
+export interface Reminders {
+  /** user opted in (permission may still be denied at the OS level) */
+  enabled: boolean;
+  /** one "HH:MM" per meal, same length as routine.meals */
+  mealTimes: string[];
+  /** evening nudge when the day isn't complete yet */
+  streak: boolean;
+  /** heads-up before and on health due dates */
+  health: boolean;
+}

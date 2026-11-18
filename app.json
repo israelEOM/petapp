@@ -10,6 +10,6 @@
       "supportsTablet": false
     },
     "android": {},
-    "plugins": ["expo-router", "expo-font", "expo-splash-screen"]
+    "plugins": ["expo-router", "expo-font", "expo-splash-screen", "expo-notifications"]
   }
 }

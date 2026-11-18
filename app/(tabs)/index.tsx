@@ -43,6 +43,7 @@ export default function Today() {
   const logs = usePetStore((s) => s.logs);
   const health = usePetStore((s) => s.health);
   const tapTask = usePetStore((s) => s.tapTask);
+  const remindersOn = usePetStore((s) => s.reminders.enabled);
 
   const [reaction, setReaction] = useState<{ text: string; happy: boolean } | null>(null);
   const [pulse, setPulse] = useState(0);
@@ -121,6 +122,15 @@ export default function Today() {
             {streak} {streak === 1 ? 'dia' : 'dias'}
           </Text>
         </View>
+        <Pressable
+          onPress={() => router.push('/reminders')}
+          accessibilityRole="button"
+          accessibilityLabel={remindersOn ? 'Lembretes' : 'Lembretes, desativados'}
+          hitSlop={4}
+          style={({ pressed }) => [styles.bell, pressed && { opacity: 0.6 }]}
+        >
+          <Icon name="bell" size={20} color={remindersOn ? colors.primary : colors.muted} strokeWidth={2.2} />
+        </Pressable>
       </View>
 
       <View style={styles.mascotCard}>
@@ -258,6 +268,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     minHeight: 36,
+  },
+  bell: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   streakText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
   mascotCard: {

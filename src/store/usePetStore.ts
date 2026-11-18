@@ -6,7 +6,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { dateKey } from '@/lib/dates';
 import { BADGES, XP, badgeContext, emptyLog, isComplete } from '@/lib/gamification';
 import { defaultHealth } from '@/lib/pet';
-import type { DayLog, HealthItem, Pet, Routine, TaskId } from './types';
+import { defaultReminders, fitMealTimes } from '@/lib/reminders';
+import type { DayLog, HealthItem, Pet, Reminders, Routine, TaskId } from './types';
 
 interface PetState {
   onboarded: boolean;
@@ -18,8 +19,10 @@ interface PetState {
   badges: string[];
   /** badge id waiting to be celebrated on screen */
   pendingBadge: string | null;
+  reminders: Reminders;
 
-  completeOnboarding: (pet: Pet, routine: Routine) => void;
+  completeOnboarding: (pet: Pet, routine: Routine, reminders: Reminders) => void;
+  setReminders: (patch: Partial<Reminders>) => void;
   tapTask: (task: TaskId) => void;
   markHealthDone: (id: string) => void;
   dismissBadge: () => void;
@@ -35,6 +38,7 @@ const initial = {
   xp: 0,
   badges: [],
   pendingBadge: null,
+  reminders: defaultReminders(2),
 };
 
 function unlockNew(badges: string[], logs: Record<string, DayLog>, health: HealthItem[], meals: number) {
@@ -47,8 +51,16 @@ export const usePetStore = create<PetState>()(
     (set) => ({
       ...initial,
 
-      completeOnboarding: (pet, routine) =>
-        set({ onboarded: true, pet, routine, health: defaultHealth(pet.species) }),
+      completeOnboarding: (pet, routine, reminders) =>
+        set({
+          onboarded: true,
+          pet,
+          routine,
+          health: defaultHealth(pet.species),
+          reminders: { ...reminders, mealTimes: fitMealTimes(reminders.mealTimes, routine.meals) },
+        }),
+
+      setReminders: (patch) => set((s) => ({ reminders: { ...s.reminders, ...patch } })),
 
       tapTask: (task) =>
         set((s) => {
@@ -108,7 +120,13 @@ export const usePetStore = create<PetState>()(
     }),
     {
       name: 'petapp-store',
-      version: 1,
+      version: 2,
+      // v1 had no reminders: start them off, matching the saved meal count.
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<PetState>;
+        if (version < 2) state.reminders = defaultReminders(state.routine?.meals ?? 2);
+        return state as PetState;
+      },
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
         onboarded: s.onboarded,
@@ -119,6 +137,7 @@ export const usePetStore = create<PetState>()(
         xp: s.xp,
         badges: s.badges,
         pendingBadge: s.pendingBadge,
+        reminders: s.reminders,
       }),
     },
   ),

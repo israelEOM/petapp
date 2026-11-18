@@ -30,3 +30,19 @@ export function formatShort(key: string): string {
 export function formatWeekday(key: string): string {
   return parse(key).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 }
+
+/** "YYYY-MM" of a "YYYY-MM-DD" key. */
+export const monthOf = (key: string) => key.slice(0, 7);
+
+/** Moves a "YYYY-MM" month by n months. */
+export function addMonths(month: string, n: number): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+}
+
+/** "novembro de 2026" */
+export function formatMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}

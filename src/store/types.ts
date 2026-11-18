@@ -33,6 +33,18 @@ export interface HealthItem {
   intervalDays: number;
   /** "YYYY-MM-DD" of the last dose, null when unknown */
   lastDate: string | null;
+  /**
+   * lastDate is a guess from onboarding, not a recorded dose: 'month' when the owner picked the
+   * month of the last dose, 'late' when they only said it's overdue. Cleared by "Feito hoje".
+   */
+  guess?: 'month' | 'late';
+}
+
+/** Onboarding answer for one health item. */
+export interface HealthAnswer {
+  kind: 'ok' | 'late' | 'unknown';
+  /** "YYYY-MM" of the last dose when kind is 'ok' */
+  month: string;
 }
 
 export interface Reminders {

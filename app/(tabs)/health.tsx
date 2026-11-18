@@ -3,9 +3,9 @@ import { LayoutAnimation, Platform, Pressable, StyleSheet, Text, UIManager, View
 
 import { Icon } from '@/components/Icon';
 import { Screen } from '@/components/Screen';
-import { dateKey, formatShort } from '@/lib/dates';
+import { dateKey } from '@/lib/dates';
 import { XP } from '@/lib/gamification';
-import { dueLabel, formatDue, healthIcon, intervalLabel, sortByDue, statusLabel, type HealthStatus, type HealthStatusKind } from '@/lib/health';
+import { dueLabel, formatDue, healthIcon, intervalLabel, lastDoseLabel, sortByDue, statusLabel, type HealthStatus, type HealthStatusKind } from '@/lib/health';
 import { de } from '@/lib/pet';
 import { haptic } from '@/lib/platform';
 import { usePetStore } from '@/store/usePetStore';
@@ -135,7 +135,7 @@ export default function Health() {
               {expanded && (
                 <View style={styles.expand}>
                   <Text style={styles.expandText}>
-                    {item.lastDate ? `Última dose: ${formatShort(item.lastDate)}` : 'Sem registro ainda'}
+                    {lastDoseLabel(item)}
                   </Text>
                   <Pressable
                     onPress={() => done(item.id)}

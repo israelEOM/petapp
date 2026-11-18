@@ -52,14 +52,14 @@ On web, react-native-svg forwards unknown props to the DOM, so hide icons from s
 Components (`src/components/`):
 - `Icon.tsx`: stroke SVG icons; export `type IconName` including at least `paw`, `ball`, `bowl`, `drop`, `shield`, `flame`, `trophy`, `star`, `heart`, `home`, `check`, `lock`, `chevron-left`.
 - `Mascot.tsx`: Pipoca in SVG (head, floppy ears, muzzle, eyes, nose, tongue). Props `size`, `mood: 'neutral' | 'happy'`. Gentle bob loop when neutral, jump loop when happy (happy = arc eyes).
-- `Button.tsx` (primary / secondary / yellow / ghost), `ProgressBar.tsx`, `OnboardingHeader.tsx` (back + "N de 4" progress), `AchievementModal.tsx` (shows `pendingBadge`, mascot happy, "Conquista desbloqueada", "Continuar" → `dismissBadge`). It is mounted in `(tabs)/_layout.tsx` so badges earned on any tab celebrate immediately.
+- `Button.tsx` (primary / secondary / yellow / ghost), `ProgressBar.tsx`, `OnboardingHeader.tsx` (back + "N de 5" progress), `AchievementModal.tsx` (shows `pendingBadge`, mascot happy, "Conquista desbloqueada", "Continuar" → `dismissBadge`). It is mounted in `(tabs)/_layout.tsx` so badges earned on any tab celebrate immediately.
 - `TabBar.tsx`: custom tab bar passed to `Tabs` via `tabBar`. A floating white pill with a highlight that springs to the active tab, filled icon and hop when a tab becomes active, a light haptic on switch, and an orange dot on Saúde when a health item is overdue or due within 7 days.
 - Also: `Screen.tsx` (safe area, status bar, optional scroll) and `PetAvatar.tsx`. `Mascot` additionally takes `wave` and `pulse` (change the number to make Pipoca hop once).
 
 Routes (`app/`):
 - `_layout.tsx`: load fonts, wait for `useHydrated()`, keep the splash screen until both are ready, headerless Stack.
 - `index.tsx`: redirect to `/onboarding` or `/(tabs)` based on `onboarded`.
-- `onboarding/`: `index` (welcome, purple background, waving mascot) → `species` (Cachorro / Gato / Outro) → `profile` (name required, breed, birth mm/aaaa, weight, sex) → `routine` (meals 1–4 stepper, walk goal 15/30/60 min) → `reminders` (meal times, streak and health switches; calls `completeOnboarding`) → `done` ("Tudo pronto!", pet card, go to tabs).
+- `onboarding/`: `index` (welcome, purple background, waving mascot) → `species` (Cachorro / Gato / Outro) → `profile` (name required, breed, birth mm/aaaa, weight, sex) → `routine` (meals 1–4 stepper, walk goal 15/30/60 min) → `health` (Em dia / Atrasado / Não sei per default health item; Em dia also asks the month of the last dose) → `reminders` (meal times, streak and health switches; calls `completeOnboarding`) → `done` ("Tudo pronto!", pet card, go to tabs).
 - `(tabs)/_layout.tsx`: tabs Hoje, Saúde, Conquistas, drawn by `TabBar`.
 - `(tabs)/index.tsx` Hoje: pet header + streak pill; mascot card with speech bubble and "Vínculo de hoje N/4" bar; 2×2 task grid (Comida counts meals `x/meals`, Água, Passeio, Brincar) with haptics on tap; next health item card; `AchievementModal`.
 - `(tabs)/health.tsx` Saúde: soonest-due item on top; list with status: no date → "Registrar última dose"; overdue → "Atrasado"; due ≤ 7 days → "Em breve"; else "Em dia". "Feito hoje" calls `markHealthDone`.
@@ -75,9 +75,15 @@ Gamification rules (already in code): +10 XP per task, +40 when all 4 are done i
 - Checked on the iOS Simulator: permission prompt, 21 reminders queued, a test reminder rendered with the right copy. Not verified: tapping a reminder to open Saúde (simulator taps on the lock-screen card don't register), Android.
 - Expo Go logs warnings that remote push isn't supported; local notifications work. In the simulator, a plain tap on a `Switch` may not register; use a short swipe across it.
 
+## Milestone 3: health step in onboarding (done)
+
+- Answers live in the onboarding draft (`health: Record<id, HealthAnswer>`) and are applied by `applyAnswer` (`src/lib/health.ts`) when the reminders step calls `completeOnboarding(pet, routine, reminders, health)`.
+- Guessed dates are marked on the item with `guess: 'month' | 'late'` (cleared by "Feito hoje"). Em dia → the 15th of the picked month (today for the current month). Atrasado → due yesterday, and labels say just "Atrasado" / "data não informada" instead of inventing a day count. Guesses don't count toward the "Saúde em dia" badge.
+- Checked on the iOS Simulator end to end (dog): answers show in Saúde, the Saúde dot appears for the overdue item.
+
 ## Later milestones
 
-1. Health step in onboarding (Em dia / Atrasado / Não sei) + scan the vet card with AI.
+1. Scan the vet card with AI to fill health dates.
 2. Backend (Supabase is a good fit) for accounts and **family sync**: shared pet, who did what, invite by code/QR, roles (cuidador, pet sitter temporário, só acompanhar), weekly task schedule, a "já deram comida" warning against double feeding.
 3. AI photo card: after a badge, ask for a photo with the pet, stylize it (Cartoon / Aquarela / Polaroid), overlay bond stats, share to Stories.
 4. Paywall (Premium R$ 14,90/mês, Família R$ 19,90/mês, 7-day trial), likely via RevenueCat.

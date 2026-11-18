@@ -5,7 +5,6 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { dateKey } from '@/lib/dates';
 import { BADGES, XP, badgeContext, emptyLog, isComplete } from '@/lib/gamification';
-import { defaultHealth } from '@/lib/pet';
 import { defaultReminders, fitMealTimes } from '@/lib/reminders';
 import type { DayLog, HealthItem, Pet, Reminders, Routine, TaskId } from './types';
 
@@ -21,7 +20,7 @@ interface PetState {
   pendingBadge: string | null;
   reminders: Reminders;
 
-  completeOnboarding: (pet: Pet, routine: Routine, reminders: Reminders) => void;
+  completeOnboarding: (pet: Pet, routine: Routine, reminders: Reminders, health: HealthItem[]) => void;
   setReminders: (patch: Partial<Reminders>) => void;
   tapTask: (task: TaskId) => void;
   markHealthDone: (id: string) => void;
@@ -51,12 +50,12 @@ export const usePetStore = create<PetState>()(
     (set) => ({
       ...initial,
 
-      completeOnboarding: (pet, routine, reminders) =>
+      completeOnboarding: (pet, routine, reminders, health) =>
         set({
           onboarded: true,
           pet,
           routine,
-          health: defaultHealth(pet.species),
+          health,
           reminders: { ...reminders, mealTimes: fitMealTimes(reminders.mealTimes, routine.meals) },
         }),
 
@@ -104,7 +103,7 @@ export const usePetStore = create<PetState>()(
 
       markHealthDone: (id) =>
         set((s) => {
-          const health = s.health.map((h) => (h.id === id ? { ...h, lastDate: dateKey() } : h));
+          const health = s.health.map((h) => (h.id === id ? { ...h, lastDate: dateKey(), guess: undefined } : h));
           const fresh = unlockNew(s.badges, s.logs, health, s.routine.meals);
           return {
             health,

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { Sex, Species } from './types';
+import type { HealthAnswer, Sex, Species } from './types';
 
 interface Draft {
   species: Species;
@@ -11,6 +11,8 @@ interface Draft {
   sex: Sex;
   meals: number;
   walkMinutes: number;
+  /** health answers by item id; missing means "Não sei" */
+  health: Record<string, HealthAnswer>;
   update: (patch: Partial<Omit<Draft, 'update' | 'reset'>>) => void;
   reset: () => void;
 }
@@ -24,6 +26,7 @@ const empty = {
   sex: 'male' as Sex,
   meals: 2,
   walkMinutes: 30,
+  health: {} as Record<string, HealthAnswer>,
 };
 
 /** In-memory answers while the user walks through onboarding. */

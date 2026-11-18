@@ -24,7 +24,7 @@ export default function RoutineStep() {
     draft.update({ meals });
   };
 
-  const next = () => router.push('/onboarding/reminders');
+  const next = () => router.push('/onboarding/health');
 
   return (
     <Screen scroll>

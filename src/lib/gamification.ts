@@ -92,7 +92,7 @@ export function badgeContext(
     playStreak: countRun(logs, today, (l) => !!l?.play),
     totalWalks: all.filter((l) => l.walk).length,
     completeDays: all.filter((l) => isComplete(l, meals)).length,
-    healthCount: health.filter((h) => h.lastDate).length,
+    healthCount: health.filter((h) => h.lastDate && !h.guess).length,
   };
 }
 

@@ -10,7 +10,7 @@ interface OnboardingHeaderProps {
   total?: number;
 }
 
-export function OnboardingHeader({ step, total = 4 }: OnboardingHeaderProps) {
+export function OnboardingHeader({ step, total = 5 }: OnboardingHeaderProps) {
   return (
     <View style={styles.row}>
       <Pressable

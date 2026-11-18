@@ -151,7 +151,9 @@ export function planReminders({ pet, meals, logs, health, reminders }: PlanInput
             id: `health-${item.id}-late-${offset}`,
             date: at(addDays(today, offset), HEALTH_TIME),
             title: `Atrasado: ${item.name}`,
-            body: `Venceu em ${formatDue(s.due, today)}. Quando cuidar disso, marque na aba Saúde.`,
+            body: s.estimated
+              ? `Está na hora de cuidar ${of}. Quando fizer, marque na aba Saúde.`
+              : `Venceu em ${formatDue(s.due, today)}. Quando cuidar disso, marque na aba Saúde.`,
             url: '/health',
           });
         }

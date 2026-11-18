@@ -8,6 +8,8 @@ import { OnboardingHeader } from '@/components/OnboardingHeader';
 import { ReminderSettings } from '@/components/ReminderSettings';
 import { Screen } from '@/components/Screen';
 import { requestPermission } from '@/lib/notifications';
+import { applyAnswer } from '@/lib/health';
+import { defaultHealth } from '@/lib/pet';
 import { haptic } from '@/lib/platform';
 import { defaultReminders } from '@/lib/reminders';
 import type { Reminders } from '@/store/types';
@@ -34,6 +36,7 @@ export default function RemindersStep() {
       },
       { meals: draft.meals, walkMinutes: draft.walkMinutes },
       { ...reminders, enabled },
+      defaultHealth(draft.species).map((item) => applyAnswer(item, draft.health[item.id])),
     );
     haptic.success();
     router.replace('/onboarding/done');
@@ -50,7 +53,7 @@ export default function RemindersStep() {
 
   return (
     <Screen scroll>
-      <OnboardingHeader step={4} />
+      <OnboardingHeader step={5} />
 
       <View style={styles.heading}>
         <Mascot size={96} mood="happy" />

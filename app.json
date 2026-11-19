@@ -19,6 +19,12 @@
       "expo-splash-screen",
       "expo-notifications",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2b92a03e-92ca-4f67-bda3-8c48d6ea149b"
+      }
+    },
+    "owner": "israel.medeiros"
   }
 }

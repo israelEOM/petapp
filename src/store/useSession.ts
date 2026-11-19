@@ -109,4 +109,9 @@ export function startSessionSync() {
     .then(({ data }) => useSession.getState().setSession(data.session))
     .catch(() => useSession.getState().setSession(null));
   supabase.auth.onAuthStateChange((_event, session) => useSession.getState().setSession(session));
+
+  // Signed in before there was a pet (e.g. on a fresh install): upload it as soon as onboarding creates it.
+  usePetStore.subscribe((state, prev) => {
+    if (state.pet && !prev.pet && useSession.getState().session) useSession.getState().linkAccount();
+  });
 }

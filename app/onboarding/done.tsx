@@ -10,12 +10,13 @@ import { petSubtitle } from '@/lib/pet';
 import { nativeDriver } from '@/lib/platform';
 import { useOnboardingDraft } from '@/store/useOnboardingDraft';
 import { usePetStore } from '@/store/usePetStore';
-import { accountsEnabled } from '@/store/useSession';
+import { accountsEnabled, useSession } from '@/store/useSession';
 import { colors, fonts, radius } from '@/theme';
 
 export default function Done() {
   const pet = usePetStore((s) => s.pet);
   const resetDraft = useOnboardingDraft((s) => s.reset);
+  const signedIn = useSession((s) => s.session !== null);
   const pop = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -63,7 +64,7 @@ export default function Done() {
             router.replace('/(tabs)');
           }}
         />
-        {accountsEnabled && (
+        {accountsEnabled && !signedIn && (
           <Button
             label="Salvar e compartilhar com a família"
             variant="ghost"

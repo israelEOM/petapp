@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
@@ -131,6 +132,11 @@ export default function Achievements() {
 function AccountCard() {
   const session = useSession((s) => s.session);
   const profile = useSession((s) => s.profile);
+  const link = useSession((s) => s.link);
+  const switchToCloudPet = useSession((s) => s.switchToCloudPet);
+  const localName = usePetStore((s) => s.pet?.name ?? '');
+  const [switching, setSwitching] = useState(false);
+  const [switchFailed, setSwitchFailed] = useState(false);
 
   if (!session) {
     return (
@@ -155,8 +161,28 @@ function AccountCard() {
       signOut().catch(() => {});
     });
 
+  const status =
+    link.status === 'working' ? 'Salvando na nuvem…' : link.status === 'error' ? link.message : 'Conta conectada';
+
+  const useCloud = () => {
+    if (link.status !== 'cloud') return;
+    confirmDestructive(
+      `Usar os dados ${link.name ? `do ${link.name}` : 'da nuvem'}?`,
+      `O que está neste celular${localName ? ` sobre o ${localName}` : ''} será substituído pelos dados da sua conta.`,
+      'Usar dados da nuvem',
+      async () => {
+        setSwitching(true);
+        setSwitchFailed(false);
+        const ok = await switchToCloudPet();
+        setSwitching(false);
+        setSwitchFailed(!ok);
+      },
+    );
+  };
+
   return (
-    <View style={[styles.card, styles.accountRow]}>
+    <View style={styles.card}>
+      <View style={styles.accountRow}>
       <View style={styles.accountIcon}>
         <Icon name="user" size={22} color={colors.primary} />
       </View>
@@ -164,9 +190,20 @@ function AccountCard() {
         <Text style={styles.accountName} numberOfLines={1}>
           {name}
         </Text>
-        <Text style={styles.accountHint}>Conta conectada</Text>
+        <Text style={styles.accountHint}>{status}</Text>
       </View>
       <Button label="Sair" variant="ghost" onPress={leave} style={{ alignSelf: 'auto' }} />
+      </View>
+      {link.status === 'cloud' && (
+        <View style={styles.cloudBox}>
+          <Text style={styles.accountName}>Sua conta já tem {link.name ? `o ${link.name}` : 'um pet'}</Text>
+          <Text style={styles.accountHint}>
+            Para continuar de onde parou em outro celular, use os dados da nuvem. Enquanto isso, nada deste celular é enviado.
+          </Text>
+          {switchFailed && <Text style={styles.errorText}>Não deu para baixar agora. Tente de novo.</Text>}
+          <Button label={switching ? 'Baixando…' : 'Usar dados da nuvem'} onPress={useCloud} disabled={switching} />
+        </View>
+      )}
     </View>
   );
 }
@@ -183,6 +220,8 @@ const styles = StyleSheet.create({
   },
   accountName: { fontFamily: fonts.black, fontSize: 16, color: colors.ink },
   accountHint: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.muted },
+  cloudBox: { gap: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.line },
+  errorText: { fontFamily: fonts.bold, fontSize: 13, color: colors.warn },
   title: { fontFamily: fonts.display, fontSize: 28, color: colors.ink },
   levelCard: { backgroundColor: colors.primary, borderRadius: radius.lg - 2, paddingVertical: 18, paddingHorizontal: 20, gap: 12 },
   levelRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },

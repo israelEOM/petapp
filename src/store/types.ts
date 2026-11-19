@@ -27,6 +27,23 @@ export interface DayLog {
   bonus: boolean;
 }
 
+/** One logged meal, task or health dose. Never edited; undo sets `deletedAt`. */
+export interface Activity {
+  /** generated on the phone, so retries and merges are idempotent */
+  id: string;
+  kind: TaskId | 'health';
+  /** set only for kind 'health' */
+  healthItemId: string | null;
+  /** logger's local day "YYYY-MM-DD" */
+  day: string;
+  /** ISO timestamp */
+  createdAt: string;
+  /** ISO timestamp of the undo, null while it counts */
+  deletedAt: string | null;
+  /** who logged it (from the server); null for activities made on this phone before syncing */
+  userId: string | null;
+}
+
 export interface HealthItem {
   id: string;
   name: string;

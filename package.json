@@ -10,7 +10,8 @@
     "ios": "expo run:ios",
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
-    "doctor": "npx expo-doctor@latest"
+    "doctor": "npx expo-doctor@latest",
+    "test": "jest"
   },
   "dependencies": {
     "@expo-google-fonts/fredoka": "^0.4.1",
@@ -43,6 +44,15 @@
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "@types/jest": "30.0.0",
+    "jest": "~30.5.2",
+    "jest-expo": "~58.0.15"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    }
   }
 }

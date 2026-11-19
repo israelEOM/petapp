@@ -4,6 +4,7 @@ import { create } from 'zustand';
 
 import { linkLocalPet } from '@/lib/migrateLocal';
 import { supabase } from '@/lib/supabase';
+import { downloadPet, setSyncTarget, startSyncTriggers } from '@/lib/sync';
 import { usePetStore } from './usePetStore';
 
 /** Account features show only when the app was built with Supabase settings. */
@@ -17,7 +18,7 @@ export interface Profile {
 /** Where moving the local pet into the account stands. 'cloud': the account already had a pet. */
 export type LinkState =
   | { status: 'idle' | 'working' | 'done' }
-  | { status: 'cloud'; petId: string }
+  | { status: 'cloud'; petId: string; name: string }
   | { status: 'error'; message: string };
 
 interface SessionState {
@@ -30,6 +31,8 @@ interface SessionState {
   loadProfile: () => Promise<void>;
   updateName: (name: string) => Promise<void>;
   linkAccount: () => Promise<void>;
+  /** Replaces the local pet with the one already in the account (link status 'cloud'). */
+  switchToCloudPet: () => Promise<boolean>;
 }
 
 /** Name from the provider when the profile row has none (Google sends it; Apple only on first sign-in). */
@@ -48,6 +51,7 @@ export const useSession = create<SessionState>()((set, get) => ({
   setSession: (session) => {
     const changedUser = session?.user.id !== get().session?.user.id;
     set({ session, ready: true, ...(changedUser ? { profile: null, link: { status: 'idle' } } : null) });
+    if (!session || changedUser) setSyncTarget(null);
     if (session && changedUser) {
       get().loadProfile();
       get().linkAccount();
@@ -73,9 +77,17 @@ export const useSession = create<SessionState>()((set, get) => ({
   linkAccount: async () => {
     const session = get().session;
     if (!session || get().link.status === 'working') return;
-    set({ link: { status: 'working' } });
-
+    const userId = session.user.id;
     const store = usePetStore.getState();
+
+    // Already uploaded for this account: just sync.
+    if (store.linkedUserId === userId && store.cloudPetId) {
+      set({ link: { status: 'done' } });
+      setSyncTarget({ userId, petId: store.cloudPetId });
+      return;
+    }
+
+    set({ link: { status: 'working' } });
     // Persist the id before uploading so a retry upserts the same rows.
     let petId = store.cloudPetId;
     if (!petId && store.pet) {
@@ -83,17 +95,42 @@ export const useSession = create<SessionState>()((set, get) => ({
       store.setCloudPetId(petId);
     }
     const snapshot = store.pet
-      ? { pet: store.pet, routine: store.routine, logs: store.logs, health: store.health, badges: store.badges }
+      ? { pet: store.pet, routine: store.routine, activities: store.activities, health: store.health, badges: store.badges }
       : null;
 
     try {
-      const result = await linkLocalPet(session.user.id, petId ?? Crypto.randomUUID(), snapshot);
-      if (get().session?.user.id !== session.user.id) return;
-      if (result.status === 'cloud') set({ link: { status: 'cloud', petId: result.petId } });
-      else set({ link: { status: 'done' } });
+      const result = await linkLocalPet(userId, petId ?? Crypto.randomUUID(), snapshot);
+      if (get().session?.user.id !== userId) return;
+      if (result.status === 'cloud') {
+        set({ link: { status: 'cloud', petId: result.petId, name: result.name } });
+        // Nothing local to lose (new phone, signed in before onboarding): take the account's pet.
+        if (!usePetStore.getState().pet) await get().switchToCloudPet();
+      } else if (result.status === 'uploaded') {
+        usePetStore.getState().setLinked(userId);
+        set({ link: { status: 'done' } });
+        setSyncTarget({ userId, petId: result.petId });
+      } else {
+        set({ link: { status: 'idle' } });
+      }
     } catch {
-      if (get().session?.user.id !== session.user.id) return;
+      if (get().session?.user.id !== userId) return;
       set({ link: { status: 'error', message: 'Não deu para salvar na nuvem agora. Vamos tentar de novo depois.' } });
+    }
+  },
+
+  switchToCloudPet: async () => {
+    const session = get().session;
+    const link = get().link;
+    if (!session || link.status !== 'cloud') return false;
+    try {
+      const cloud = await downloadPet(session.user.id, link.petId);
+      if (get().session?.user.id !== session.user.id) return false;
+      usePetStore.getState().adoptCloudPet(cloud);
+      set({ link: { status: 'done' } });
+      setSyncTarget({ userId: session.user.id, petId: link.petId });
+      return true;
+    } catch {
+      return false;
     }
   },
 }));
@@ -104,6 +141,7 @@ let started = false;
 export function startSessionSync() {
   if (!supabase || started) return;
   started = true;
+  startSyncTriggers();
   supabase.auth
     .getSession()
     .then(({ data }) => useSession.getState().setSession(data.session))
@@ -113,5 +151,10 @@ export function startSessionSync() {
   // Signed in before there was a pet (e.g. on a fresh install): upload it as soon as onboarding creates it.
   usePetStore.subscribe((state, prev) => {
     if (state.pet && !prev.pet && useSession.getState().session) useSession.getState().linkAccount();
+    // Local data erased: stop syncing the old pet.
+    if (prev.cloudPetId && !state.cloudPetId) {
+      setSyncTarget(null);
+      useSession.setState({ link: { status: 'idle' } });
+    }
   });
 }

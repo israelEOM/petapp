@@ -1,75 +1,24 @@
-import * as Crypto from 'expo-crypto';
-
-import type { DayLog, HealthItem, Pet, Routine, TaskId } from '@/store/types';
+import type { Activity, HealthItem, Pet, Routine } from '@/store/types';
+import { toRow } from './activities';
 import { supabase } from './supabase';
 
 export interface LocalSnapshot {
   pet: Pet;
   routine: Routine;
-  logs: Record<string, DayLog>;
+  activities: Record<string, Activity>;
   health: HealthItem[];
   badges: string[];
 }
 
-export interface ActivityRow {
-  id: string;
-  pet_id: string;
-  kind: TaskId | 'health';
-  health_item_id: string | null;
-  day: string;
-  created_at: string;
-}
-
-/**
- * Stable UUID from a string (sha256, shaped as a v5-style UUID). Re-running the upload produces the
- * same ids, so rows that already reached the server are skipped instead of duplicated.
- */
-export async function stableUuid(seed: string): Promise<string> {
-  const h = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, seed);
-  const variant = ((parseInt(h[16], 16) & 0x3) | 0x8).toString(16);
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
-}
-
-/** Noon of a local day, so the timestamp never slips into the neighbouring day in any timezone offset. */
-function noonOf(day: string): string {
-  return new Date(`${day}T12:00:00`).toISOString();
-}
-
-/** One activity per meal and per task done on each day, plus one per recorded (not guessed) health dose. */
-export async function activitiesFromLogs(petId: string, snapshot: LocalSnapshot): Promise<ActivityRow[]> {
-  const rows: Omit<ActivityRow, 'id'>[] = [];
-  for (const [day, log] of Object.entries(snapshot.logs)) {
-    for (let i = 0; i < log.food; i++) rows.push({ pet_id: petId, kind: 'food', health_item_id: null, day, created_at: noonOf(day) });
-    for (const task of ['water', 'walk', 'play'] as const) {
-      if (log[task]) rows.push({ pet_id: petId, kind: task, health_item_id: null, day, created_at: noonOf(day) });
-    }
-  }
-  for (const h of snapshot.health) {
-    if (h.lastDate && !h.guess) {
-      rows.push({ pet_id: petId, kind: 'health', health_item_id: h.id, day: h.lastDate, created_at: noonOf(h.lastDate) });
-    }
-  }
-  // Index within (day, kind) keeps the 2nd meal distinct from the 1st.
-  const seen = new Map<string, number>();
-  return Promise.all(
-    rows.map(async (r) => {
-      const key = `${r.day}|${r.kind}|${r.health_item_id ?? ''}`;
-      const n = seen.get(key) ?? 0;
-      seen.set(key, n + 1);
-      return { ...r, id: await stableUuid(`petapp:${petId}:${key}:${n}`) };
-    }),
-  );
-}
-
 export type LinkResult =
   | { status: 'uploaded'; petId: string }
-  | { status: 'cloud'; petId: string }
+  | { status: 'cloud'; petId: string; name: string }
   | { status: 'nothing' };
 
 /**
- * First sign-in: if the account has no pet yet, uploads the local one (pet, health items, history as
- * activities, badges). If the account already has a pet (second phone, reinstall), uploads nothing
- * and returns it so the app can offer to use the cloud data instead.
+ * First sign-in: if the account has no pet yet, uploads the local one (pet, health items, every
+ * activity, badges). If the account already has a different pet (second phone, reinstall), uploads
+ * nothing and returns it so the app can offer to use the cloud data instead.
  *
  * `petId` must be generated once and persisted by the caller before calling, so a retry after a
  * crash or a lost connection upserts the same rows.
@@ -79,15 +28,19 @@ export async function linkLocalPet(userId: string, petId: string, snapshot: Loca
 
   const { data: memberships, error: listError } = await supabase
     .from('pet_members')
-    .select('pet_id')
+    .select('pet_id, pets(name)')
     .eq('user_id', userId)
+    .order('joined_at')
     .limit(1);
   if (listError) throw listError;
 
-  const existing = memberships?.[0]?.pet_id as string | undefined;
+  const row = memberships?.[0] as { pet_id: string; pets: { name: string } | { name: string }[] | null } | undefined;
+  const existing = row?.pet_id;
+  const pets = row?.pets;
+  const existingName = (Array.isArray(pets) ? pets[0]?.name : pets?.name) ?? '';
   // Our own earlier, interrupted upload counts as "no pet yet": finish it.
-  if (existing && existing !== petId) return { status: 'cloud', petId: existing };
-  if (!snapshot) return existing ? { status: 'cloud', petId: existing } : { status: 'nothing' };
+  if (existing && existing !== petId) return { status: 'cloud', petId: existing, name: existingName };
+  if (!snapshot) return existing ? { status: 'cloud', petId: existing, name: existingName } : { status: 'nothing' };
 
   const { pet, routine } = snapshot;
   const { error: petError } = await supabase.from('pets').upsert(
@@ -122,11 +75,10 @@ export async function linkLocalPet(userId: string, petId: string, snapshot: Loca
     if (error) throw error;
   }
 
-  const activities = await activitiesFromLogs(petId, snapshot);
-  for (let i = 0; i < activities.length; i += 500) {
-    const { error } = await supabase
-      .from('activities')
-      .upsert(activities.slice(i, i + 500), { onConflict: 'id', ignoreDuplicates: true });
+  // Undone activities go up too, so another phone never resurrects them.
+  const rows = Object.values(snapshot.activities).map((a) => toRow(petId, a));
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await supabase.from('activities').upsert(rows.slice(i, i + 500), { onConflict: 'id' });
     if (error) throw error;
   }
 

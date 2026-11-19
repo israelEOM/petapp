@@ -22,6 +22,7 @@ npm install
 npm run setup      # expo install of all SDK-matched deps + zustand + TS
 npx expo start     # or: npm run web
 npm run typecheck
+npm test           # Jest (jest-expo) unit tests in src/**/__tests__
 ```
 
 `react-dom` is pinned through `expo install` on purpose: a transitive dependency otherwise pulls a react-dom that needs a newer React than the SDK ships, and `npm install` fails with ERESOLVE.
@@ -31,7 +32,7 @@ npm run typecheck
 - `package.json`, `app.json`, `tsconfig.json`, `.gitignore`
 - `src/theme.ts`: colors, fonts, radius (match the design canvas)
 - `src/store/types.ts`: Pet, Routine, DayLog, HealthItem, TaskId
-- `src/store/usePetStore.ts`: persisted store; `completeOnboarding`, `tapTask`, `markHealthDone`, `dismissBadge`, `resetAll`, plus a `useHydrated()` hook
+- `src/store/usePetStore.ts`: persisted store (version 3); `completeOnboarding`, `tapTask`, `markHealthDone`, `dismissBadge`, `resetAll`, plus a `useHydrated()` hook. Activities are the source of truth; `logs` and `xp` are derived from them on every change and on load (not persisted)
 - `src/store/useOnboardingDraft.ts`: in-memory onboarding answers
 - `src/lib/dates.ts`: local "YYYY-MM-DD" helpers
 - `src/lib/pet.ts`: species labels, `de()` ("do"/"da" by sex), age from "mm/aaaa", default health items per species
@@ -93,6 +94,15 @@ Plan: `~/.claude/plans/shimmering-leaping-nova.md` (6 phases: sign-in, schema + 
 - `src/lib/migrateLocal.ts` (`linkLocalPet`): on sign-in (`useSession.linkAccount`), uploads the local pet, health items, history as one activity per meal/task (stable UUIDs, so retries don't duplicate) and badges, under `cloudPetId` (persisted in the pet store before upload). If the account already has another pet, `link.status` is `'cloud'` (no UI for that choice yet). Not yet run against the server from the app.
 - **Dev build (EAS):** local `npx expo run:ios` fails with Xcode 26.3 (Swift 6.2): `expo-modules-jsi` 58.0.23 hits a Swift concurrency error; SDK 58 targets Xcode 27. So the iOS simulator dev build comes from EAS: `eas.json` profile `development` (simulator, dev client), Expo project `@israel.medeiros/petapp`. Build: `PATH=/opt/homebrew/bin:$PATH npx eas-cli@latest build -p ios --profile development`, download the `.tar.gz`, `xcrun simctl install booted PetApp.app`, then `npx expo start --dev-client` and open `petapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081`. Rebuild only when native deps or `app.config.ts` plugins change (e.g. after adding the Google iOS client ID); JS changes load from Metro. EAS doesn't upload `.env.local`, so build-time env (Google/Apple plugins) must be set as EAS environment variables. `pod install` needs `LANG=en_US.UTF-8` here.
 - Google sign-in works on the EAS simulator build (checked 2026-11-20): Google Cloud project `petapp-515222` (Google Auth Platform in testing mode, External; only listed test users can sign in), web client "PetApp web (Supabase)" and iOS client "PetApp iOS". Their IDs are in `.env.local` and in the EAS `development` environment (`eas env:create`; `eas.json` development profile uses it). The Supabase Google provider lists both IDs and has "Skip nonce checks" on; its client secret is still NeoSkin's until the user pastes the new one (the ID-token flow doesn't use it). Signing in, the profile, the account card and uploading the local pet (Thor: pet, owner row, health items) were checked against the server. Migration `20261120000000_backfill_profiles` gives profiles to auth users that predate the trigger (NeoSkin accounts). Apple sign-in waits for a paid Apple Developer team.
+
+## Milestone 4, phase 3: sync engine (built 2026-11-20)
+
+- Every tap is an `Activity` (`src/store/types.ts`): client UUID, kind, local day, `deletedAt` for undo. `src/lib/activities.ts` holds the pure logic: `tapChanges` (food adds up to the goal then clears the day; water/walk/play toggle and an off-tap removes every live one that day), `deriveLogs`, `deriveXp` (+10 per task with meals capped at the goal, +40 complete day, +30 per health dose), `mergeActivities`, the v2→v3 conversion and row mapping. Tests: `src/lib/__tests__/activities.test.ts`.
+- Store v3 migration turns saved logs into activities with the same stable ids the first upload used (`src/lib/ids.ts`, seed `petapp:<cloudPetId or 'local'>:<day>|<kind>|<item>:<n>`). XP is recomputed; old extra health doses beyond the last one aren't recoverable.
+- `outbox` (id → local revision) holds changes not yet on the server; `markPushed` only clears entries unchanged during the push. `linkedUserId` marks the account whose upload finished; only then does sync run.
+- `src/lib/sync.ts`: push outbox + badges, pull activities since `syncCursor` (10 s overlap) plus health items and badges, Realtime channel per pet (any change schedules a pull), runs on local change (500 ms debounce), app foreground and after link; retries with backoff up to 60 s. `downloadPet` fetches a whole pet.
+- Account already has another pet: link status `'cloud'`; Conquistas shows "Sua conta já tem o X" with "Usar dados da nuvem" (`switchToCloudPet` → `adoptCloudPet`). On a phone with no pet it switches automatically. The welcome screen has "Já tenho conta"; once the pet arrives it routes to the tabs. Erasing local data stops sync.
+- Checked on the iOS Simulator against Supabase: taps and undos reach the server; a server-side change (as another phone) shows up live via Realtime; erasing local data and relaunching downloads the account's pet; taps after that sync. Not yet checked: two simulators at once, offline then reconnect, `npm test` covers only the pure logic.
 
 ## Later milestones
 

@@ -7,9 +7,11 @@ import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
 import { addDays, dateKey } from '@/lib/dates';
 import { BADGES, bestStreak, countRun, isComplete, levelInfo } from '@/lib/gamification';
+import { signOut } from '@/lib/auth';
 import { confirmDestructive } from '@/lib/platform';
 import { useOnboardingDraft } from '@/store/useOnboardingDraft';
 import { usePetStore } from '@/store/usePetStore';
+import { accountsEnabled, useSession } from '@/store/useSession';
 import { colors, fonts, radius } from '@/theme';
 
 const WEEKDAY = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
@@ -114,6 +116,8 @@ export default function Achievements() {
         })}
       </View>
 
+      {accountsEnabled && <AccountCard />}
+
       {__DEV__ && (
         <View style={styles.dev}>
           <Text style={styles.devLabel}>Desenvolvimento</Text>
@@ -124,7 +128,61 @@ export default function Achievements() {
   );
 }
 
+function AccountCard() {
+  const session = useSession((s) => s.session);
+  const profile = useSession((s) => s.profile);
+
+  if (!session) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.accountRow}>
+          <View style={styles.accountIcon}>
+            <Icon name="shield" size={22} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.accountName}>Salve seu progresso</Text>
+            <Text style={styles.accountHint}>Crie uma conta para não perder nada e cuidar junto com a família.</Text>
+          </View>
+        </View>
+        <Button label="Criar conta ou entrar" onPress={() => router.push('/account/sign-in')} />
+      </View>
+    );
+  }
+
+  const name = profile?.displayName ?? session.user.email ?? 'Sua conta';
+  const leave = () =>
+    confirmDestructive('Sair da conta?', 'O progresso continua salvo neste celular.', 'Sair', () => {
+      signOut().catch(() => {});
+    });
+
+  return (
+    <View style={[styles.card, styles.accountRow]}>
+      <View style={styles.accountIcon}>
+        <Icon name="user" size={22} color={colors.primary} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.accountName} numberOfLines={1}>
+          {name}
+        </Text>
+        <Text style={styles.accountHint}>Conta conectada</Text>
+      </View>
+      <Button label="Sair" variant="ghost" onPress={leave} style={{ alignSelf: 'auto' }} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  accountIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountName: { fontFamily: fonts.black, fontSize: 16, color: colors.ink },
+  accountHint: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.muted },
   title: { fontFamily: fonts.display, fontSize: 28, color: colors.ink },
   levelCard: { backgroundColor: colors.primary, borderRadius: radius.lg - 2, paddingVertical: 18, paddingHorizontal: 20, gap: 12 },
   levelRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },

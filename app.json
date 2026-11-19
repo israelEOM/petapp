@@ -7,9 +7,18 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.israeleom.petapp"
     },
-    "android": {},
-    "plugins": ["expo-router", "expo-font", "expo-splash-screen", "expo-notifications"]
+    "android": {
+      "package": "com.israeleom.petapp"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-splash-screen",
+      "expo-notifications",
+      "expo-secure-store"
+    ]
   }
 }

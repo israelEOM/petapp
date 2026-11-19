@@ -74,6 +74,13 @@ const ICONS = {
     </>
   ),
   minus: <Path d="M5 12h14" />,
+  close: <Path d="M6 6l12 12M18 6L6 18" />,
+  user: (
+    <>
+      <Circle cx="12" cy="8" r="4" />
+      <Path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" />
+    </>
+  ),
 } satisfies Record<string, ReactElement>;
 
 export type IconName = keyof typeof ICONS;

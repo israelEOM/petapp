@@ -6,10 +6,12 @@ import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ReminderSync } from '@/lib/useReminderSync';
+import { startSessionSync } from '@/store/useSession';
 import { useHydrated } from '@/store/usePetStore';
 import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+startSessionSync();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -32,6 +34,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'fade' }}>
         <Stack.Screen name="reminders" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="account/sign-in" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       </Stack>
       <ReminderSync />
     </SafeAreaProvider>

@@ -19,12 +19,15 @@ interface PetState {
   /** badge id waiting to be celebrated on screen */
   pendingBadge: string | null;
   reminders: Reminders;
+  /** id of this pet on the server; set before the first upload so retries reuse it */
+  cloudPetId: string | null;
 
   completeOnboarding: (pet: Pet, routine: Routine, reminders: Reminders, health: HealthItem[]) => void;
   setReminders: (patch: Partial<Reminders>) => void;
   tapTask: (task: TaskId) => void;
   markHealthDone: (id: string) => void;
   dismissBadge: () => void;
+  setCloudPetId: (id: string | null) => void;
   resetAll: () => void;
 }
 
@@ -38,6 +41,7 @@ const initial = {
   badges: [],
   pendingBadge: null,
   reminders: defaultReminders(2),
+  cloudPetId: null as string | null,
 };
 
 function unlockNew(badges: string[], logs: Record<string, DayLog>, health: HealthItem[], meals: number) {
@@ -115,6 +119,8 @@ export const usePetStore = create<PetState>()(
 
       dismissBadge: () => set({ pendingBadge: null }),
 
+      setCloudPetId: (cloudPetId) => set({ cloudPetId }),
+
       resetAll: () => set({ ...initial }),
     }),
     {
@@ -137,6 +143,7 @@ export const usePetStore = create<PetState>()(
         badges: s.badges,
         pendingBadge: s.pendingBadge,
         reminders: s.reminders,
+        cloudPetId: s.cloudPetId,
       }),
     },
   ),

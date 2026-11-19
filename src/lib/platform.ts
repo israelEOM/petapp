@@ -13,6 +13,7 @@ export const haptic = {
   tap: () => safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)),
   light: () => safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)),
   success: () => safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)),
+  error: () => safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)),
 };
 
 /** Destructive confirmation that also works on web, where Alert buttons are not supported. */

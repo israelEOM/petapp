@@ -10,6 +10,7 @@ import { petSubtitle } from '@/lib/pet';
 import { nativeDriver } from '@/lib/platform';
 import { useOnboardingDraft } from '@/store/useOnboardingDraft';
 import { usePetStore } from '@/store/usePetStore';
+import { accountsEnabled } from '@/store/useSession';
 import { colors, fonts, radius } from '@/theme';
 
 export default function Done() {
@@ -54,13 +55,26 @@ export default function Done() {
 
       <View style={{ flex: 1 }} />
 
-      <Button
-        label={`Começar o dia com ${pet.sex === 'female' ? 'a' : 'o'} ${pet.name}`}
-        onPress={() => {
-          resetDraft();
-          router.replace('/(tabs)');
-        }}
-      />
+      <View style={styles.actions}>
+        <Button
+          label={`Começar o dia com ${pet.sex === 'female' ? 'a' : 'o'} ${pet.name}`}
+          onPress={() => {
+            resetDraft();
+            router.replace('/(tabs)');
+          }}
+        />
+        {accountsEnabled && (
+          <Button
+            label="Salvar e compartilhar com a família"
+            variant="ghost"
+            onPress={() => {
+              resetDraft();
+              router.replace('/(tabs)');
+              router.push('/account/sign-in');
+            }}
+          />
+        )}
+      </View>
     </Screen>
   );
 }
@@ -68,6 +82,7 @@ export default function Done() {
 const styles = StyleSheet.create({
   content: { alignItems: 'center', paddingTop: 48, gap: 20 },
   copy: { alignItems: 'center', gap: 6 },
+  actions: { alignSelf: 'stretch', gap: 6 },
   title: { fontFamily: fonts.display, fontSize: 30, color: colors.ink },
   body: { fontFamily: fonts.body, fontSize: 16, lineHeight: 23, color: colors.muted, textAlign: 'center', maxWidth: 300 },
   card: {

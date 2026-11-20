@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
+import { useFamily } from '@/store/useFamily';
 import { usePetStore } from '@/store/usePetStore';
 import { applyPlan, configureNotifications, notificationsSupported } from './notifications';
 import { planReminders } from './reminders';
@@ -14,9 +15,14 @@ export function syncReminders(): Promise<void> {
   queue = queue
     .then(() => {
       const s = usePetStore.getState();
+      const family = useFamily.getState();
+      // Shared pet: meal and "fechar o dia" reminders come from the server (due-reminders), which
+      // knows what the rest of the family already logged. Health reminders stay local.
+      const shared = !!s.cloudPetId && family.petId === s.cloudPetId && family.members.length > 1 && !family.removed;
+      const reminders = shared ? { ...s.reminders, mealTimes: [], streak: false } : s.reminders;
       const plan =
         s.onboarded && s.pet
-          ? planReminders({ pet: s.pet, meals: s.routine.meals, logs: s.logs, health: s.health, reminders: s.reminders })
+          ? planReminders({ pet: s.pet, meals: s.routine.meals, logs: s.logs, health: s.health, reminders })
           : [];
       return applyPlan(plan);
     })
@@ -49,12 +55,18 @@ export function useReminderSync() {
       clearTimeout(timer);
       timer = setTimeout(syncReminders, 400);
     });
+    const unsubFamily = useFamily.subscribe((s, prev) => {
+      if (s.members.length === prev.members.length && s.petId === prev.petId && s.removed === prev.removed) return;
+      clearTimeout(timer);
+      timer = setTimeout(syncReminders, 400);
+    });
     const appState = AppState.addEventListener('change', (state) => {
       if (state === 'active') syncReminders();
     });
     return () => {
       clearTimeout(timer);
       unsubStore();
+      unsubFamily();
       appState.remove();
     };
   }, []);

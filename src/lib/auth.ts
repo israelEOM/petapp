@@ -3,6 +3,7 @@ import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
 
 import { useSession } from '@/store/useSession';
+import { forgetPushToken } from './pushSync';
 import { supabase } from './supabase';
 
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
@@ -106,5 +107,6 @@ export async function signOut(): Promise<void> {
       // not signed in with Google; nothing to clear
     }
   }
+  await forgetPushToken().catch(() => {});
   await supabase.auth.signOut();
 }

@@ -15,6 +15,8 @@ export const accountsEnabled = supabase !== null;
 export interface Profile {
   id: string;
   displayName: string | null;
+  /** push when someone else in the family logs something */
+  notifyFamily: boolean;
 }
 
 /** Where moving the local pet into the account stands. 'cloud': the account already had a pet. */
@@ -32,6 +34,7 @@ interface SessionState {
   setSession: (session: Session | null) => void;
   loadProfile: () => Promise<void>;
   updateName: (name: string) => Promise<void>;
+  setNotifyFamily: (on: boolean) => Promise<void>;
   linkAccount: () => Promise<void>;
   /** Replaces the local pet with the one already in the account (link status 'cloud'). */
   switchToCloudPet: () => Promise<boolean>;
@@ -70,17 +73,36 @@ export const useSession = create<SessionState>()((set, get) => ({
   loadProfile: async () => {
     const session = get().session;
     if (!supabase || !session) return;
-    const { data } = await supabase.from('profiles').select('id, display_name').eq('id', session.user.id).maybeSingle();
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, display_name, notify_family')
+      .eq('id', session.user.id)
+      .maybeSingle();
     if (get().session?.user.id !== session.user.id) return;
-    set({ profile: { id: session.user.id, displayName: data?.display_name ?? metadataName(session) } });
+    set({
+      profile: {
+        id: session.user.id,
+        displayName: data?.display_name || metadataName(session),
+        notifyFamily: data?.notify_family ?? true,
+      },
+    });
   },
 
   updateName: async (name) => {
     const session = get().session;
     const displayName = name.trim();
     if (!supabase || !session || !displayName) return;
-    set({ profile: { id: session.user.id, displayName } });
+    set({ profile: { id: session.user.id, displayName, notifyFamily: get().profile?.notifyFamily ?? true } });
     await supabase.from('profiles').update({ display_name: displayName }).eq('id', session.user.id);
+  },
+
+  setNotifyFamily: async (on) => {
+    const session = get().session;
+    const profile = get().profile;
+    if (!supabase || !session || !profile) return;
+    set({ profile: { ...profile, notifyFamily: on } });
+    const { error } = await supabase.from('profiles').update({ notify_family: on }).eq('id', session.user.id);
+    if (error && get().profile) set({ profile: { ...get().profile!, notifyFamily: !on } });
   },
 
   linkAccount: async () => {

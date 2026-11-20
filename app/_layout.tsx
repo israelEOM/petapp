@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { startPushSync } from '@/lib/pushSync';
 import { ReminderSync } from '@/lib/useReminderSync';
 import { startSessionSync } from '@/store/useSession';
 import { useHydrated } from '@/store/usePetStore';
@@ -12,6 +13,7 @@ import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 startSessionSync();
+startPushSync();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({

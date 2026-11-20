@@ -7,13 +7,20 @@ import { Icon } from '@/components/Icon';
 import { ReminderSettings, ToggleRow } from '@/components/ReminderSettings';
 import { Screen } from '@/components/Screen';
 import { getPermission, requestPermission, type PermissionState } from '@/lib/notifications';
+import { de } from '@/lib/pet';
+import { useAccess } from '@/lib/useAccess';
 import { usePetStore } from '@/store/usePetStore';
+import { useSession } from '@/store/useSession';
 import { colors, fonts, radius } from '@/theme';
 
 export default function RemindersScreen() {
   const reminders = usePetStore((s) => s.reminders);
   const meals = usePetStore((s) => s.routine.meals);
   const setReminders = usePetStore((s) => s.setReminders);
+  const pet = usePetStore((s) => s.pet);
+  const access = useAccess();
+  const notifyFamily = useSession((s) => s.profile?.notifyFamily ?? true);
+  const setNotifyFamily = useSession((s) => s.setNotifyFamily);
   const [permission, setPermission] = useState<PermissionState | null>(null);
 
   const refresh = useCallback(() => {
@@ -78,6 +85,21 @@ export default function RemindersScreen() {
         </View>
       )}
 
+      {access.shared && (
+        <View style={styles.card}>
+          <ToggleRow
+            title="Avisos da família"
+            hint={`Quando alguém registra um cuidado ${pet ? `${de(pet)} ${pet.name}` : ''}`}
+            value={notifyFamily}
+            onValueChange={setNotifyFamily}
+          />
+          <Text style={styles.familyNote}>
+            Com a família, o lembrete de comida e o de fechar o dia vão para quem está de vez e só chegam se ninguém registrou
+            ainda.
+          </Text>
+        </View>
+      )}
+
       <ReminderSettings
         value={reminders}
         meals={meals}
@@ -103,4 +125,14 @@ const styles = StyleSheet.create({
   notice: { backgroundColor: colors.orangeSoft, borderRadius: radius.md, padding: 16, gap: 8 },
   noticeTitle: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
   noticeText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.ink },
+  familyNote: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.muted,
+    paddingTop: 10,
+    paddingBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
 });

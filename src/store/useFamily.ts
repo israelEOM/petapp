@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import type { Assignment } from '@/lib/schedule';
+
 export type Role = 'owner' | 'caregiver' | 'sitter' | 'viewer';
 
 export interface Member {
@@ -17,9 +19,12 @@ interface FamilyState {
   /** pet the members belong to; a list for another pet is ignored */
   petId: string | null;
   members: Member[];
+  /** weekly "quem faz o quê" */
+  schedule: Assignment[];
   /** true when the last sync found this account is no longer a member */
   removed: boolean;
-  setMembers: (petId: string, members: Member[]) => void;
+  setMembers: (petId: string, members: Member[], schedule: Assignment[]) => void;
+  setSchedule: (schedule: Assignment[]) => void;
   setRemoved: (removed: boolean) => void;
   clear: () => void;
 }
@@ -30,10 +35,12 @@ export const useFamily = create<FamilyState>()(
     (set) => ({
       petId: null,
       members: [],
+      schedule: [],
       removed: false,
-      setMembers: (petId, members) => set({ petId, members, removed: false }),
+      setMembers: (petId, members, schedule) => set({ petId, members, schedule, removed: false }),
+      setSchedule: (schedule) => set({ schedule }),
       setRemoved: (removed) => set({ removed }),
-      clear: () => set({ petId: null, members: [], removed: false }),
+      clear: () => set({ petId: null, members: [], schedule: [], removed: false }),
     }),
     { name: 'petapp-family', storage: createJSONStorage(() => AsyncStorage) },
   ),

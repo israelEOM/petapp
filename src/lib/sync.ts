@@ -4,8 +4,9 @@ import { AppState } from 'react-native';
 import { type Member, type Role, useFamily } from '@/store/useFamily';
 import type { CloudPet } from '@/store/usePetStore';
 import { usePetStore } from '@/store/usePetStore';
-import type { HealthItem, Pet } from '@/store/types';
+import type { HealthItem, Pet, TaskId } from '@/store/types';
 import { type ActivityRow, fromRow, toRow } from './activities';
+import type { Assignment } from './schedule';
 import { supabase } from './supabase';
 
 /**
@@ -126,7 +127,14 @@ async function refreshMembers(petId: string, userId: string): Promise<boolean> {
       name: names.get(r.user_id)?.trim() || 'Alguém da família',
     }))
     .sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : a.joinedAt.localeCompare(b.joinedAt)));
-  useFamily.getState().setMembers(petId, members);
+  const { data: sched, error: sErr } = await supabase.from('schedule').select('weekday, task, user_id').eq('pet_id', petId);
+  if (sErr) throw sErr;
+  const schedule: Assignment[] = ((sched ?? []) as { weekday: number; task: TaskId; user_id: string }[]).map((r) => ({
+    weekday: r.weekday,
+    task: r.task,
+    userId: r.user_id,
+  }));
+  useFamily.getState().setMembers(petId, members, schedule);
   return true;
 }
 
@@ -192,6 +200,7 @@ function subscribe(petId: string) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'health_items', filter }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'badges', filter }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pet_members', filter }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'schedule', filter }, onChange)
     .subscribe();
 }
 

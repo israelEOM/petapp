@@ -38,6 +38,7 @@ export default function RootLayout() {
         <Stack.Screen name="family/index" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="family/invite" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="family/join" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="family/schedule" options={{ animation: 'slide_from_right' }} />
       </Stack>
       <ReminderSync />
     </SafeAreaProvider>

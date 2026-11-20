@@ -1,4 +1,5 @@
 import type { Role } from '@/store/useFamily';
+import type { Assignment } from './schedule';
 import { supabase } from './supabase';
 
 export { codeFromText, inviteLink, isValidCode, normalizeCode } from './inviteCode';
@@ -48,4 +49,26 @@ export async function removeMember(petId: string, userId: string) {
   if (!supabase) throw new FamilyError(OFFLINE);
   const { error } = await supabase.from('pet_members').delete().eq('pet_id', petId).eq('user_id', userId);
   if (error) throw new FamilyError('Não deu para remover agora. Tente de novo.');
+}
+
+/**
+ * Saves the weekly schedule (owner only): upserts the new cells first, then deletes the cells
+ * that were cleared, so a failure halfway never wipes the week.
+ */
+export async function saveSchedule(petId: string, next: Assignment[], prev: Assignment[]) {
+  if (!supabase) throw new FamilyError(OFFLINE);
+  const fail = () => new FamilyError('Não deu para salvar agora. Tente de novo.');
+  if (next.length) {
+    const { error } = await supabase
+      .from('schedule')
+      .upsert(next.map((a) => ({ pet_id: petId, weekday: a.weekday, task: a.task, user_id: a.userId })), {
+        onConflict: 'pet_id,weekday,task',
+      });
+    if (error) throw fail();
+  }
+  const cleared = prev.filter((p) => !next.some((n) => n.weekday === p.weekday && n.task === p.task));
+  for (const c of cleared) {
+    const { error } = await supabase.from('schedule').delete().eq('pet_id', petId).eq('weekday', c.weekday).eq('task', c.task);
+    if (error) throw fail();
+  }
 }

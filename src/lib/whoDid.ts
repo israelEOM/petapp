@@ -45,3 +45,25 @@ export function describe(a: Activity, who: string, health: HealthItem[]): string
   }
   return `${who} ${VERB[a.kind]}`;
 }
+
+/** How far back a meal by someone else triggers the "já deram comida" warning. */
+export const DOUBLE_FEED_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * The newest live meal logged by another family member in the last 3 hours, if any. Only
+ * activities already synced to this phone count (offline, the warning can miss a meal).
+ */
+export function recentMealByOther(
+  activities: Record<string, Activity>,
+  myId: string | null,
+  now: number = Date.now(),
+): Activity | undefined {
+  let best: Activity | undefined;
+  for (const a of Object.values(activities)) {
+    if (a.kind !== 'food' || !isLive(a) || !a.userId || a.userId === myId) continue;
+    const t = Date.parse(a.createdAt);
+    if (now - t > DOUBLE_FEED_MS || t > now + 60_000) continue;
+    if (!best || a.createdAt > best.createdAt) best = a;
+  }
+  return best;
+}

@@ -112,6 +112,13 @@ Plan: `~/.claude/plans/shimmering-leaping-nova.md` (6 phases: sign-in, schema + 
 - Hoje: when more than one person cares for the pet, task cards say who did it ("1/2 · Ana · 8h10") and "Hoje na família" lists today's activities. Viewers and expired sitters get a notice and taps only make Pipoca explain; Saúde hides "Feito hoje" for them.
 - Checked on the iOS Simulator: invite created in the app (code + QR); a test account "Ana Teste" (`ana@petapp.test`, created in the dev database by SQL) redeemed it through `redeem_invite`; Ana and her meal appeared live on Família and Hoje; changing her role to "Só acompanha" from the app synced. Not checked: the join screen end to end with a real second account, scanning a real QR code (the scanner opens and asks for the camera, but the simulator has no camera), the viewer/expired-sitter UI from that person's side, Android.
 
+## Milestone 4, phase 5: double feeding and weekly schedule (built 2026-11-20)
+
+- Tapping Comida to add a meal when another member logged one in the last 3 hours asks first: "Ana já deu comida às 8h10 / Registrar outra refeição do Thor?" (`recentMealByOther` in `src/lib/whoDid.ts`; only meals already synced to this phone count). `confirmAction` in `src/lib/platform.ts` is the web-safe two-button confirm.
+- Weekly schedule ("Quem faz o quê"): `src/lib/schedule.ts` (pure helpers), synced into `useFamily.schedule` with the members (Realtime on `schedule` too), saved by `saveSchedule` (upsert the new cells, then delete only the cleared ones). Screen `app/family/schedule.tsx`, opened from Família: weekday row, one row per task; the owner picks who (owner, caregivers and active sitters) or "Ninguém", and can repeat a day across the week; others see it read-only. On Hoje, an undone task assigned for today says "Hoje é sua vez" or "Vez de Ana hoje".
+- Checked on the iOS Simulator: the warning shows for the test member's meal, assignments save (14 rows after "repetir na semana"), and Hoje shows the turn. Not checked: the schedule as seen by a non-owner.
+- Metro on this Mac doesn't notice file changes (npm skipped `@parcel/watcher`'s install script), so after edits restart it with `npx expo start --dev-client --clear` and relaunch the app.
+
 ## Later milestones
 
 1. Scan the vet card with AI to fill health dates.

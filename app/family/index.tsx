@@ -160,6 +160,23 @@ export default function FamilyScreen() {
             })}
           </View>
 
+          {(access.isOwner || access.shared) && (
+            <Pressable
+              onPress={() => router.push('/family/schedule')}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.card, styles.row, styles.linkRow, pressed && { opacity: 0.8 }]}
+            >
+              <View style={styles.linkIcon} aria-hidden>
+                <Icon name="calendar" size={20} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.name}>Quem faz o quê</Text>
+                <Text style={styles.role}>Escala da semana para cada tarefa</Text>
+              </View>
+              <Icon name="chevron-right" size={18} color={colors.muted} />
+            </Pressable>
+          )}
+
           {error && <Text style={styles.error}>{error}</Text>}
 
           {access.isOwner ? (
@@ -189,6 +206,8 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.card, borderRadius: radius.md + 4, paddingHorizontal: 16 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingVertical: 10 },
   rowLine: { borderTopWidth: 1, borderTopColor: colors.line },
+  linkRow: { paddingHorizontal: 16 },
+  linkIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontFamily: fonts.display, fontSize: 17, color: colors.primary },
   name: { fontFamily: fonts.black, fontSize: 16, color: colors.ink },

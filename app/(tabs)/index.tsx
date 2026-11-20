@@ -11,10 +11,11 @@ import { dateKey, formatShort } from '@/lib/dates';
 import { XP, completedTasks, countRun, emptyLog, isComplete } from '@/lib/gamification';
 import { dueLabel, healthIcon, sortByDue } from '@/lib/health';
 import { de, petSubtitle } from '@/lib/pet';
-import { haptic, nativeDriver } from '@/lib/platform';
+import { confirmAction, haptic, nativeDriver } from '@/lib/platform';
 import { useAccess } from '@/lib/useAccess';
-import { describe, lastOf, timeOf, todays, whoName } from '@/lib/whoDid';
-import { useFamily } from '@/store/useFamily';
+import { describe, lastOf, recentMealByOther, timeOf, todays, whoName } from '@/lib/whoDid';
+import { assigneeFor } from '@/lib/schedule';
+import { firstName, useFamily } from '@/store/useFamily';
 import { useSession } from '@/store/useSession';
 import type { DayLog, TaskId } from '@/store/types';
 import { usePetStore } from '@/store/usePetStore';
@@ -50,6 +51,7 @@ export default function Today() {
   const remindersOn = usePetStore((s) => s.reminders.enabled);
   const activities = usePetStore((s) => s.activities);
   const members = useFamily((s) => s.members);
+  const schedule = useFamily((s) => s.schedule);
   const removed = useFamily((s) => s.removed);
   const myId = useSession((s) => s.session?.user.id ?? null);
   const access = useAccess();
@@ -69,6 +71,7 @@ export default function Today() {
   const streak = countRun(logs, today, (l) => isComplete(l, meals));
   const next = sortByDue(health, today)[0];
   const todayList = access.shared ? todays(activities, today) : [];
+  const weekday = new Date().getDay();
   const readOnly = !access.canLog;
   const sitterEnd = access.me?.role === 'sitter' && access.me.expiresAt ? formatShort(dateKey(new Date(access.me.expiresAt))) : null;
 
@@ -82,11 +85,26 @@ export default function Today() {
     timer.current = setTimeout(() => setReaction(null), REACTION_MS);
   };
 
-  const onTap = (id: TaskId) => {
+  const onTap = (id: TaskId, confirmedFeed = false) => {
     if (readOnly) {
       haptic.light();
       react(access.me?.role === 'viewer' ? 'Você só acompanha. Quem registra é a família.' : 'Seu período de pet sitter terminou.', false);
       return;
+    }
+    // Someone else fed the pet a moment ago: ask before logging another meal.
+    if (id === 'food' && !confirmedFeed) {
+      const current = { ...emptyLog(), ...usePetStore.getState().logs[today] };
+      const other = current.food < meals ? recentMealByOther(usePetStore.getState().activities, myId) : undefined;
+      if (other) {
+        haptic.warning();
+        confirmAction(
+          `${whoName(other, members, myId)} já deu comida às ${timeOf(other.createdAt)}`,
+          `Registrar outra refeição ${de(pet)} ${pet.name}?`,
+          'Registrar mesmo assim',
+          () => onTap(id, true),
+        );
+        return;
+      }
     }
     const before = { ...emptyLog(), ...usePetStore.getState().logs[today] };
     tapTask(id);
@@ -112,15 +130,28 @@ export default function Today() {
     }
   };
 
+  /** "Hoje é sua vez" / "Vez de Ana hoje" from the weekly schedule. */
+  const turnOf = (id: TaskId): string | null => {
+    if (!access.shared) return null;
+    const userId = assigneeFor(schedule, weekday, id);
+    if (!userId) return null;
+    if (userId === myId) return 'Hoje é sua vez';
+    const m = members.find((x) => x.userId === userId);
+    return m ? `Vez de ${firstName(m.name)} hoje` : null;
+  };
+
   const taskSub = (id: TaskId): string => {
     const last = access.shared ? lastOf(todayList, id) : undefined;
     const by = last ? `${whoName(last, members, myId)} · ${timeOf(last.createdAt)}` : null;
+    const turn = turnOf(id);
     if (id === 'food') {
       if (by) return log.food >= meals ? `Feito · ${by}` : `${log.food}/${meals} · ${by}`;
       if (log.food >= meals) return meals === 1 ? 'Refeição feita' : 'Todas as refeições';
+      if (turn) return turn;
       return `${log.food}/${meals} ${meals === 1 ? 'refeição' : 'refeições'}`;
     }
     if (log[id]) return by ?? 'Feito hoje';
+    if (turn) return turn;
     if (id === 'water') return 'Toque para registrar';
     if (id === 'walk') return `Meta: ${walkMinutes} min`;
     return 'Mantenha a sequência!';

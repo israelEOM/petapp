@@ -8,6 +8,7 @@ import { XP } from '@/lib/gamification';
 import { dueLabel, formatDue, healthIcon, intervalLabel, lastDoseLabel, sortByDue, statusLabel, type HealthStatus, type HealthStatusKind } from '@/lib/health';
 import { de } from '@/lib/pet';
 import { haptic } from '@/lib/platform';
+import { useAccess } from '@/lib/useAccess';
 import { usePetStore } from '@/store/usePetStore';
 import { colors, fonts, radius } from '@/theme';
 
@@ -37,6 +38,7 @@ export default function Health() {
   const pet = usePetStore((s) => s.pet);
   const health = usePetStore((s) => s.health);
   const markHealthDone = usePetStore((s) => s.markHealthDone);
+  const { canLog } = useAccess();
   const [open, setOpen] = useState<string | null>(null);
   const [justDone, setJustDone] = useState<string | null>(null);
 
@@ -86,7 +88,7 @@ export default function Health() {
               <Icon name="check" size={20} color={colors.yellow} strokeWidth={3} />
               <Text style={styles.heroDoneText}>Registrado hoje · +{XP.health} XP</Text>
             </View>
-          ) : (
+          ) : !canLog ? null : (
             <Pressable
               onPress={() => done(top.item.id)}
               accessibilityRole="button"
@@ -137,15 +139,17 @@ export default function Health() {
                   <Text style={styles.expandText}>
                     {lastDoseLabel(item)}
                   </Text>
-                  <Pressable
-                    onPress={() => done(item.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.name}: feito hoje`}
-                    style={({ pressed }) => [styles.doneButton, pressed && { opacity: 0.85 }]}
-                  >
-                    <Icon name="check" size={18} color="#FFFFFF" strokeWidth={2.6} />
-                    <Text style={styles.doneButtonText}>Feito hoje</Text>
-                  </Pressable>
+                  {canLog && (
+                    <Pressable
+                      onPress={() => done(item.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${item.name}: feito hoje`}
+                      style={({ pressed }) => [styles.doneButton, pressed && { opacity: 0.85 }]}
+                    >
+                      <Icon name="check" size={18} color="#FFFFFF" strokeWidth={2.6} />
+                      <Text style={styles.doneButtonText}>Feito hoje</Text>
+                    </Pressable>
+                  )}
                 </View>
               )}
               {justDone === item.id && item.lastDate === today && !expanded && (

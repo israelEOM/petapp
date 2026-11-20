@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { AppState } from 'react-native';
 
+import { type Member, type Role, useFamily } from '@/store/useFamily';
 import type { CloudPet } from '@/store/usePetStore';
 import { usePetStore } from '@/store/usePetStore';
 import type { HealthItem, Pet } from '@/store/types';
@@ -60,7 +61,8 @@ async function push(petId: string) {
     .map((a) => toRow(petId, a));
   for (let i = 0; i < rows.length; i += PAGE) {
     const { error } = await supabase.from('activities').upsert(rows.slice(i, i + PAGE), { onConflict: 'id' });
-    if (error) throw error;
+    // No permission (viewer, sitter whose time ended): retrying would never succeed, so drop them.
+    if (error && error.code !== '42501') throw error;
   }
   if (Object.keys(sent).length) usePetStore.getState().markPushed(sent);
 
@@ -102,6 +104,32 @@ async function fetchHealthAndBadges(petId: string) {
   };
 }
 
+/** Members with their names. Returns false when this account is no longer one of them. */
+async function refreshMembers(petId: string, userId: string): Promise<boolean> {
+  if (!supabase) return true;
+  const { data, error } = await supabase.from('pet_members').select('user_id, role, expires_at, joined_at').eq('pet_id', petId);
+  if (error) throw error;
+  const rows = (data ?? []) as { user_id: string; role: Role; expires_at: string | null; joined_at: string }[];
+  if (!rows.some((r) => r.user_id === userId)) return false;
+  const { data: profiles, error: pErr } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .in('id', rows.map((r) => r.user_id));
+  if (pErr) throw pErr;
+  const names = new Map(((profiles ?? []) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]));
+  const members: Member[] = rows
+    .map((r) => ({
+      userId: r.user_id,
+      role: r.role,
+      expiresAt: r.expires_at,
+      joinedAt: r.joined_at,
+      name: names.get(r.user_id)?.trim() || 'Alguém da família',
+    }))
+    .sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : a.joinedAt.localeCompare(b.joinedAt)));
+  useFamily.getState().setMembers(petId, members);
+  return true;
+}
+
 async function pull(petId: string) {
   await fetchActivities(petId, usePetStore.getState().syncCursor, (rows) =>
     usePetStore.getState().applyRemote({ activities: rows.map(fromRow), cursor: rows[rows.length - 1].updated_at }),
@@ -118,6 +146,12 @@ async function run() {
   if (!t) return;
   running = true;
   try {
+    if (!(await refreshMembers(t.petId, t.userId))) {
+      // Removed from the family: stop; the UI offers to clear the pet from this phone.
+      useFamily.getState().setRemoved(true);
+      setSyncTarget(null);
+      return;
+    }
     await push(t.petId);
     await pull(t.petId);
     backoff = 0;
@@ -148,11 +182,16 @@ function subscribe(petId: string) {
   channelPet = petId;
   const filter = `pet_id=eq.${petId}`;
   const onChange = () => schedule(300);
+  // Drop channels left over for this pet (hot reload, a quick re-subscribe) before adding a fresh one:
+  // a reused channel name rejects new callbacks once subscribed.
+  const prefix = `realtime:pet:${petId}`;
+  for (const c of supabase.getChannels()) if (c.topic.startsWith(prefix)) supabase.removeChannel(c);
   channel = supabase
-    .channel(`pet:${petId}`)
+    .channel(`pet:${petId}:${Date.now()}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'activities', filter }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'health_items', filter }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'badges', filter }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pet_members', filter }, onChange)
     .subscribe();
 }
 
@@ -224,4 +263,9 @@ export async function downloadPet(userId: string, petId: string): Promise<CloudP
     badges,
     cursor: all.length ? (all[all.length - 1].updated_at ?? null) : null,
   };
+}
+
+/** Runs a sync soon (e.g. after changing members), if one is active. */
+export function syncNow() {
+  schedule(0);
 }

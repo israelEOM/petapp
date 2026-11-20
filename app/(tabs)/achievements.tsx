@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
@@ -9,7 +9,10 @@ import { Screen } from '@/components/Screen';
 import { addDays, dateKey } from '@/lib/dates';
 import { BADGES, bestStreak, countRun, isComplete, levelInfo } from '@/lib/gamification';
 import { signOut } from '@/lib/auth';
+import { de } from '@/lib/pet';
 import { confirmDestructive } from '@/lib/platform';
+import { useAccess } from '@/lib/useAccess';
+import { firstName, useFamily } from '@/store/useFamily';
 import { useOnboardingDraft } from '@/store/useOnboardingDraft';
 import { usePetStore } from '@/store/usePetStore';
 import { accountsEnabled, useSession } from '@/store/useSession';
@@ -117,6 +120,7 @@ export default function Achievements() {
         })}
       </View>
 
+      {accountsEnabled && <FamilyCard />}
       {accountsEnabled && <AccountCard />}
 
       {__DEV__ && (
@@ -126,6 +130,37 @@ export default function Achievements() {
         </View>
       )}
     </Screen>
+  );
+}
+
+function FamilyCard() {
+  const members = useFamily((s) => s.members);
+  const access = useAccess();
+  const pet = usePetStore((s) => s.pet);
+  const others = access.me ? members.filter((m) => m.userId !== access.me?.userId) : [];
+  const hint = !access.me
+    ? `Convide quem também cuida ${pet ? `${de(pet)} ${pet.name}` : 'do seu pet'}`
+    : others.length === 0
+      ? 'Só você por enquanto. Convide alguém!'
+      : others.length === 1
+        ? `Você e ${firstName(others[0].name)}`
+        : `Você e mais ${others.length} pessoas`;
+  return (
+    <Pressable
+      onPress={() => router.push('/family')}
+      accessibilityRole="button"
+      accessibilityLabel={`Família. ${hint}`}
+      style={({ pressed }) => [styles.card, styles.accountRow, pressed && { opacity: 0.8 }]}
+    >
+      <View style={styles.accountIcon}>
+        <Icon name="users" size={22} color={colors.primary} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.accountName}>Família</Text>
+        <Text style={styles.accountHint}>{hint}</Text>
+      </View>
+      <Icon name="chevron-right" size={20} color={colors.muted} />
+    </Pressable>
   );
 }
 

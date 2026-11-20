@@ -4,7 +4,9 @@ import { create } from 'zustand';
 
 import { linkLocalPet } from '@/lib/migrateLocal';
 import { supabase } from '@/lib/supabase';
+import { FamilyError, redeemInvite, removeMember } from '@/lib/family';
 import { downloadPet, setSyncTarget, startSyncTriggers } from '@/lib/sync';
+import { useFamily } from './useFamily';
 import { usePetStore } from './usePetStore';
 
 /** Account features show only when the app was built with Supabase settings. */
@@ -33,6 +35,10 @@ interface SessionState {
   linkAccount: () => Promise<void>;
   /** Replaces the local pet with the one already in the account (link status 'cloud'). */
   switchToCloudPet: () => Promise<boolean>;
+  /** Joins a pet with an invite code and makes it this phone's pet. Throws FamilyError. */
+  joinWithCode: (code: string) => Promise<void>;
+  /** Leaves the shared pet (non-owners) and clears it from this phone. Throws FamilyError. */
+  leaveFamily: () => Promise<void>;
 }
 
 /** Name from the provider when the profile row has none (Google sends it; Apple only on first sign-in). */
@@ -51,7 +57,10 @@ export const useSession = create<SessionState>()((set, get) => ({
   setSession: (session) => {
     const changedUser = session?.user.id !== get().session?.user.id;
     set({ session, ready: true, ...(changedUser ? { profile: null, link: { status: 'idle' } } : null) });
-    if (!session || changedUser) setSyncTarget(null);
+    if (!session || changedUser) {
+      setSyncTarget(null);
+      useFamily.getState().clear();
+    }
     if (session && changedUser) {
       get().loadProfile();
       get().linkAccount();
@@ -133,6 +142,36 @@ export const useSession = create<SessionState>()((set, get) => ({
       return false;
     }
   },
+
+  joinWithCode: async (code) => {
+    const session = get().session;
+    if (!session) throw new FamilyError('Entre na sua conta para usar o convite.');
+    const userId = session.user.id;
+    const petId = await redeemInvite(code);
+    let cloud;
+    try {
+      cloud = await downloadPet(userId, petId);
+    } catch {
+      throw new FamilyError('Você entrou na família, mas não deu para baixar os dados agora. Abra o app de novo em instantes.');
+    }
+    if (get().session?.user.id !== userId) return;
+    setSyncTarget(null);
+    useFamily.getState().clear();
+    usePetStore.getState().adoptCloudPet(cloud);
+    set({ link: { status: 'done' } });
+    setSyncTarget({ userId, petId });
+  },
+
+  leaveFamily: async () => {
+    const session = get().session;
+    const petId = usePetStore.getState().cloudPetId;
+    if (!session || !petId) return;
+    // Already removed by the owner: nothing to delete on the server.
+    if (!useFamily.getState().removed) await removeMember(petId, session.user.id);
+    setSyncTarget(null);
+    useFamily.getState().clear();
+    usePetStore.getState().resetAll();
+  },
 }));
 
 let started = false;
@@ -154,6 +193,7 @@ export function startSessionSync() {
     // Local data erased: stop syncing the old pet.
     if (prev.cloudPetId && !state.cloudPetId) {
       setSyncTarget(null);
+      useFamily.getState().clear();
       useSession.setState({ link: { status: 'idle' } });
     }
   });

@@ -18,7 +18,15 @@
       "expo-font",
       "expo-splash-screen",
       "expo-notifications",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O PetApp usa a câmera para ler o QR code do convite da família.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "extra": {
       "eas": {

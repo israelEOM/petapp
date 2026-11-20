@@ -7,11 +7,15 @@ import { Mascot } from '@/components/Mascot';
 import { PetAvatar } from '@/components/PetAvatar';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
-import { dateKey } from '@/lib/dates';
+import { dateKey, formatShort } from '@/lib/dates';
 import { XP, completedTasks, countRun, emptyLog, isComplete } from '@/lib/gamification';
 import { dueLabel, healthIcon, sortByDue } from '@/lib/health';
 import { de, petSubtitle } from '@/lib/pet';
 import { haptic, nativeDriver } from '@/lib/platform';
+import { useAccess } from '@/lib/useAccess';
+import { describe, lastOf, timeOf, todays, whoName } from '@/lib/whoDid';
+import { useFamily } from '@/store/useFamily';
+import { useSession } from '@/store/useSession';
 import type { DayLog, TaskId } from '@/store/types';
 import { usePetStore } from '@/store/usePetStore';
 import { colors, fonts, radius } from '@/theme';
@@ -44,6 +48,11 @@ export default function Today() {
   const health = usePetStore((s) => s.health);
   const tapTask = usePetStore((s) => s.tapTask);
   const remindersOn = usePetStore((s) => s.reminders.enabled);
+  const activities = usePetStore((s) => s.activities);
+  const members = useFamily((s) => s.members);
+  const removed = useFamily((s) => s.removed);
+  const myId = useSession((s) => s.session?.user.id ?? null);
+  const access = useAccess();
 
   const [reaction, setReaction] = useState<{ text: string; happy: boolean } | null>(null);
   const [pulse, setPulse] = useState(0);
@@ -59,6 +68,9 @@ export default function Today() {
   const allDone = count === 4;
   const streak = countRun(logs, today, (l) => isComplete(l, meals));
   const next = sortByDue(health, today)[0];
+  const todayList = access.shared ? todays(activities, today) : [];
+  const readOnly = !access.canLog;
+  const sitterEnd = access.me?.role === 'sitter' && access.me.expiresAt ? formatShort(dateKey(new Date(access.me.expiresAt))) : null;
 
   const defaultBubble =
     count === 0 ? `Oi! Bora cuidar ${de(pet)} ${pet.name} hoje?` : allDone ? 'Dia perfeito! Até amanhã.' : 'Tá ficando bom, continua!';
@@ -71,6 +83,11 @@ export default function Today() {
   };
 
   const onTap = (id: TaskId) => {
+    if (readOnly) {
+      haptic.light();
+      react(access.me?.role === 'viewer' ? 'Você só acompanha. Quem registra é a família.' : 'Seu período de pet sitter terminou.', false);
+      return;
+    }
     const before = { ...emptyLog(), ...usePetStore.getState().logs[today] };
     tapTask(id);
     const after = { ...emptyLog(), ...usePetStore.getState().logs[today] };
@@ -96,11 +113,14 @@ export default function Today() {
   };
 
   const taskSub = (id: TaskId): string => {
+    const last = access.shared ? lastOf(todayList, id) : undefined;
+    const by = last ? `${whoName(last, members, myId)} · ${timeOf(last.createdAt)}` : null;
     if (id === 'food') {
+      if (by) return log.food >= meals ? `Feito · ${by}` : `${log.food}/${meals} · ${by}`;
       if (log.food >= meals) return meals === 1 ? 'Refeição feita' : 'Todas as refeições';
       return `${log.food}/${meals} ${meals === 1 ? 'refeição' : 'refeições'}`;
     }
-    if (log[id]) return 'Feito hoje';
+    if (log[id]) return by ?? 'Feito hoje';
     if (id === 'water') return 'Toque para registrar';
     if (id === 'walk') return `Meta: ${walkMinutes} min`;
     return 'Mantenha a sequência!';
@@ -147,6 +167,24 @@ export default function Today() {
         </View>
       </View>
 
+      {removed ? (
+        <Pressable
+          onPress={() => router.push('/family')}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.notice, pressed && { opacity: 0.8 }]}
+        >
+          <Text style={styles.noticeTitle}>Você não faz mais parte desta família</Text>
+          <Text style={styles.noticeText}>Os registros não sincronizam mais. Toque para ver o que fazer.</Text>
+        </Pressable>
+      ) : readOnly ? (
+        <View style={styles.notice}>
+          <Text style={styles.noticeTitle}>
+            {access.me?.role === 'viewer' ? `Você acompanha ${de(pet)} ${pet.name}` : `Seu período de pet sitter terminou${sitterEnd ? ` em ${sitterEnd}` : ''}`}
+          </Text>
+          <Text style={styles.noticeText}>Você vê tudo o que a família registra, mas não registra. Para mudar, fale com quem convidou você.</Text>
+        </View>
+      ) : null}
+
       <View style={styles.grid}>
         {TASKS.map((t) => (
           <TaskCard
@@ -162,6 +200,24 @@ export default function Today() {
           />
         ))}
       </View>
+
+      {access.shared && (
+        <View style={styles.dayCard}>
+          <Text style={styles.dayTitle}>Hoje na família</Text>
+          {todayList.length === 0 ? (
+            <Text style={styles.dayEmpty}>Ninguém registrou nada ainda hoje.</Text>
+          ) : (
+            todayList.slice(0, 8).map((a) => (
+              <View key={a.id} style={styles.dayRow}>
+                <Text style={styles.dayText} numberOfLines={1}>
+                  {describe(a, whoName(a, members, myId), health)}
+                </Text>
+                <Text style={styles.dayTime}>{timeOf(a.createdAt)}</Text>
+              </View>
+            ))
+          )}
+        </View>
+      )}
 
       {next && (
         <Pressable
@@ -307,6 +363,15 @@ const styles = StyleSheet.create({
   bondRow: { flexDirection: 'row', justifyContent: 'space-between' },
   bondLabel: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  notice: { backgroundColor: colors.yellowSoft, borderRadius: radius.md, padding: 14, gap: 4 },
+  noticeTitle: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
+  noticeText: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.ink },
+  dayCard: { backgroundColor: colors.card, borderRadius: radius.md + 4, padding: 16, gap: 10 },
+  dayTitle: { fontFamily: fonts.black, fontSize: 16, color: colors.ink },
+  dayEmpty: { fontFamily: fonts.body, fontSize: 14, color: colors.muted },
+  dayRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  dayText: { flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.ink },
+  dayTime: { fontFamily: fonts.body, fontSize: 13, color: colors.muted },
   taskWrap: { width: '47%', flexGrow: 1 },
   task: { borderRadius: 22, borderWidth: 2, padding: 14, gap: 8, minHeight: 112 },
   taskTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

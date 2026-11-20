@@ -81,6 +81,33 @@ const ICONS = {
       <Path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" />
     </>
   ),
+  users: (
+    <>
+      <Circle cx="9" cy="8" r="3.5" />
+      <Path d="M2.5 20c1.2-3.6 3.6-5.5 6.5-5.5s5.3 1.9 6.5 5.5" />
+      <Path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.4M17.5 14.8c1.9.7 3.2 2.4 4 5.2" />
+    </>
+  ),
+  share: (
+    <>
+      <Path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" />
+      <Path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+    </>
+  ),
+  camera: (
+    <>
+      <Path d="M4 8h3l2-3h6l2 3h3v11H4Z" />
+      <Circle cx="12" cy="13" r="3.5" />
+    </>
+  ),
+  qr: (
+    <>
+      <Rect x={4} y={4} width={6} height={6} rx={1} />
+      <Rect x={14} y={4} width={6} height={6} rx={1} />
+      <Rect x={4} y={14} width={6} height={6} rx={1} />
+      <Path d="M14 14h2v2M20 14v6h-4M14 18v2" />
+    </>
+  ),
 } satisfies Record<string, ReactElement>;
 
 export type IconName = keyof typeof ICONS;

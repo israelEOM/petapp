@@ -35,6 +35,9 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'fade' }}>
         <Stack.Screen name="reminders" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="account/sign-in" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="family/index" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="family/invite" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="family/join" options={{ animation: 'slide_from_right' }} />
       </Stack>
       <ReminderSync />
     </SafeAreaProvider>
